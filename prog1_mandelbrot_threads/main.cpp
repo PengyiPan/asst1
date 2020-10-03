@@ -3,6 +3,7 @@
 #include <getopt.h>
 
 #include "CycleTimer.h"
+#include <iostream>
 
 extern void mandelbrotSerial(
     float x0, float y0, float x1, float y1,
@@ -142,6 +143,7 @@ int main(int argc, char** argv) {
     //
     // Run the threaded version
     //
+
 
     double minThread = 1e30;
     for (int i = 0; i < 5; ++i) {
