@@ -4,6 +4,7 @@
 #include <math.h>
 #include "CS149intrin.h"
 #include "logger.h"
+#include <iostream>
 using namespace std;
 
 #define EXP_MAX 10
@@ -63,8 +64,8 @@ int main(int argc, char * argv[]) {
   clampedExpSerial(values, exponents, gold, N);
   clampedExpVector(values, exponents, output, N);
 
-  //absSerial(values, gold, N);
-  //absVector(values, output, N);
+//  absSerial(values, gold, N);
+//  absVector(values, output, N);
 
   printf("\e[1;31mCLAMPED EXPONENT\e[0m (required) \n");
   bool clampedCorrect = verifyResult(values, exponents, output, gold, N);
@@ -249,6 +250,60 @@ void clampedExpVector(float* values, int* exponents, float* output, int N) {
   // Your solution should work for any value of
   // N and VECTOR_WIDTH, not just when VECTOR_WIDTH divides N
   //
+    __cs149_vec_float x;
+    __cs149_vec_int exp;
+    __cs149_vec_float result;
+    __cs149_vec_int zero_i = _cs149_vset_int(0);
+    __cs149_vec_float one_f = _cs149_vset_float(1.f);
+    __cs149_vec_int one_i = _cs149_vset_int(1);
+    __cs149_vec_float up_lmt = _cs149_vset_float(9.999999f);
+    __cs149_mask maskValidX, maskExpZero, maskExpGtZero, maskNeedToClamp;
+
+    int i {0};
+    while(i < N) {
+        // load X
+        maskValidX = _cs149_init_ones();
+        bool need_exit{false};
+        if (i + VECTOR_WIDTH >= N) {
+            maskValidX = _cs149_init_ones(N - i);
+            need_exit = true;
+        }
+        _cs149_vload_float(x, values+i, maskValidX);
+        _cs149_vload_int(exp, exponents+i, maskValidX);
+
+        // exp == 0
+        maskExpZero = _cs149_init_ones(0);
+        _cs149_veq_int(maskExpZero, exp, zero_i, maskValidX);
+        _cs149_vmove_float(result, one_f, maskExpZero);  //output[i] = 1.f
+
+        // calculate exponent
+        maskExpGtZero = _cs149_init_ones(0);
+        _cs149_vgt_int(maskExpGtZero, exp, zero_i, maskValidX);
+        _cs149_vmove_float(result, x, maskExpGtZero);
+        _cs149_vsub_int(exp, exp, one_i, maskExpGtZero);
+        _cs149_vgt_int(maskExpGtZero, exp, zero_i, maskValidX);
+        while (_cs149_cntbits(maskExpGtZero) > 0) {
+//            CS149Logger.addLog("here in while", maskExpGtZero);
+            _cs149_vmult_float(result, result, x, maskExpGtZero);
+            _cs149_vsub_int(exp, exp, one_i, maskExpGtZero);
+            _cs149_vgt_int(maskExpGtZero, exp, zero_i, maskValidX);
+        }
+
+        // clamp
+        maskNeedToClamp = _cs149_init_ones(0);
+        _cs149_vgt_float(maskNeedToClamp, result, up_lmt, maskValidX);
+        _cs149_vmove_float(result, up_lmt, maskNeedToClamp);
+
+        // write back to memory
+        _cs149_vstore_float(output+i, result, maskValidX);
+//        CS149Logger.addLog("after store new loop", maskValidX);
+
+        if (need_exit) {
+            break;
+        }
+        i += VECTOR_WIDTH;
+    }
+
   
 }
 
